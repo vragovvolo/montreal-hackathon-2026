@@ -63,7 +63,7 @@ QC_CODES = {"QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"}
 
 # COMMAND ----------
 
-# MAGIC %pip install geopandas fiona pyproj requests -q
+# MAGIC %pip install geopandas fiona pyproj requests "numpy<2" -q
 
 # COMMAND ----------
 
