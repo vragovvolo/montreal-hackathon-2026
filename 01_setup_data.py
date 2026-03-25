@@ -153,8 +153,13 @@ def load_gpkg(filename, table_name, layer=None, prov_col_hint=None):
     print(f"\n{'='*60}")
     print(f"Loading {table_name}" + (f" (layer: {layer})" if layer else ""))
     print(f"{'='*60}")
-    path = f"{RAW_VOL}/{filename}"
-    gdf = gpd.read_file(path, layer=layer)
+    # GPKG is SQLite-based and needs local file access (not UC Volume FUSE)
+    vol_path = f"{RAW_VOL}/{filename}"
+    local_path = f"/tmp/{filename}"
+    if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
+        print(f"  Copying {filename} to local storage...")
+        shutil.copy2(vol_path, local_path)
+    gdf = gpd.read_file(local_path, layer=layer)
     # Reproject to WGS84 and extract lat/lon
     if gdf.crs and gdf.crs.to_epsg() != 4326:
         try:
@@ -217,9 +222,13 @@ load_gpkg("pedestrian_network.gpkg", "pedestrian_network", prov_col_hint="prov_t
 # Transit Stops & Routes (from unified GPKG)
 import fiona
 
-transit_path = f"{RAW_VOL}/transit_stops_routes.gpkg"
-if os.path.exists(transit_path) and os.path.getsize(transit_path) > 0:
-    layers = fiona.listlayers(transit_path)
+transit_vol_path = f"{RAW_VOL}/transit_stops_routes.gpkg"
+transit_local = "/tmp/transit_stops_routes.gpkg"
+if os.path.exists(transit_vol_path) and os.path.getsize(transit_vol_path) > 0:
+    if not os.path.exists(transit_local) or os.path.getsize(transit_local) == 0:
+        print("Copying transit GPKG to local storage...")
+        shutil.copy2(transit_vol_path, transit_local)
+    layers = fiona.listlayers(transit_local)
     print(f"GPKG layers: {layers}")
     for layer in layers:
         if "stop" in layer.lower():

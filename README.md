@@ -1,57 +1,99 @@
-# Montreal Hackathon - March 2026
+# Montreal Hackathon - Quebec Open Data
 
 ## Quick Start
 
 1. Import `01_setup_data.py` as a Databricks notebook
-2. Attach to a cluster with DBR 14.3+ (or any recent serverless runtime)
-3. Run All — takes ~10 minutes
-4. All tables land in `montreal_hackathon.quebec_data`
+2. Run on serverless compute
+3. All tables land in `montreal_hackathon.quebec_data`
 
-## What Gets Created
+**Pre-requisite:** Raw data files must be pre-loaded in `/Volumes/montreal_hackathon/quebec_data/raw_data/` before running the notebook.
 
-**Catalog:** `montreal_hackathon`
-**Schema:** `montreal_hackathon.quebec_data`
+---
 
-### Tables (all filtered to Quebec)
+## Datasets
 
-| Table | Description | Use Case |
-|-------|-------------|----------|
-| `education_facilities` | Schools, post-secondary institutions | Genie, MAS |
-| `healthcare_facilities` | Hospitals, clinics, care homes | Genie, MAS |
-| `cultural_art_facilities` | Museums, galleries, theatres | Genie, MAS |
-| `recreation_sport_facilities` | Parks, arenas, pools, trails | Genie, MAS |
-| `bridges_tunnels` | Bridge & tunnel infrastructure | Genie, MAS |
-| `cycling_network` | Cycling paths & lanes | Genie, MAS |
-| `pedestrian_network` | Sidewalks, paths, crosswalks | Genie, MAS |
-| `transit_stops` | Province-wide transit stops | Genie, MAS |
-| `transit_routes` | Province-wide transit routes | Genie, MAS |
-| `transit_stm_stops` | Montreal STM stops | Genie, MAS |
-| `transit_stm_routes` | Montreal STM routes | Genie, MAS |
-| `transit_stm_trips` | Montreal STM trips | Genie, MAS |
-| `transit_stm_stop_times` | Montreal STM schedules | Genie, MAS |
-| `transit_stl_stops` | Laval STL stops | Genie, MAS |
-| `transit_stl_routes` | Laval STL routes | Genie, MAS |
+All data sourced from **Statistics Canada** open data initiatives (2020-2025), filtered to **Quebec only**.
 
-### Volume (for Knowledge Assistant / RAG)
+### Tabular Datasets (CSV -> Delta Tables)
 
-`/Volumes/montreal_hackathon/quebec_data/reference_docs/`
+#### `education_facilities`
+**Source:** Open Database of Educational Facilities (ODEF) v3.0.1, December 2024
+Quebec primary, secondary, and post-secondary schools (public and private). Includes school names, addresses, grade ranges, ISCED classification levels (pre-K through post-secondary), French immersion indicators (early/middle/late), official language minority school flags, and Census subdivision linkage. Originally compiled from 43 provincial and federal sources covering every province and territory.
 
-Contains 8 metadata PDFs + supporting CSVs describing every dataset in detail.
+#### `healthcare_facilities`
+**Source:** Open Database of Healthcare Facilities (ODHF) v1.1, August 2020
+Quebec hospitals, ambulatory health care services, and nursing/residential care facilities. Classified by NAICS sectors 621-623. Includes facility names, addresses, geocoded lat/lon, and Census subdivision linkage. Deduplicated using ML-based record linkage (Python Record Linkage Toolkit + Scikit-Learn). 7,033 records nationally before Quebec filtering.
 
-## Hackathon Tracks
+#### `cultural_art_facilities`
+**Source:** Open Database of Cultural and Art Facilities (ODCAF) v1.0, October 2020
+Quebec museums, galleries, theatres, libraries, heritage sites, arts centres, and festival sites. Nine facility type categories based on NAICS sectors 711-712. Includes addresses, geocoded coordinates, and data provider attribution. Fuzzy matching (FuzzyWuzzy) was used to remove 2,435 duplicates nationally. ~8,000 records before Quebec filtering.
 
-### Track 1: Knowledge Assistant (KA)
-Build a RAG-powered assistant using the PDFs and supporting docs in the volume. Participants should be able to ask questions about data sources, methodology, and coverage.
+#### `recreation_sport_facilities`
+**Source:** Open Database of Recreational and Sport Facilities (ODRSF) v1.0, September 2021
+Quebec parks, arenas, pools, trails, playgrounds, community centres, sports fields, stadiums, rinks, splash pads, skate parks, and more. Eighteen facility type categories. The largest dataset (~182,000 records nationally from 452 data sources). Note: coverage is not comprehensive — e.g., only ~25% of Canada's golf courses and ~60% of rinks are represented.
 
-### Track 2: Genie Space
-Create a Genie Space over `montreal_hackathon.quebec_data` for natural language SQL exploration. Example queries:
-- "How many schools in Montreal offer French immersion?"
-- "Show me all hospitals within 5km of a transit stop"
-- "What types of recreational facilities are most common?"
+### Geospatial Datasets (GeoPackage -> Delta Tables)
 
-### Track 3: Multi-Agent Supervisor
-Build domain-specific agents (education, health, culture, recreation, transit, infrastructure) and a supervisor that routes queries to the right specialist. Cross-domain queries like "Find schools near transit stops with nearby parks" require coordination.
+All geospatial datasets are reprojected from their original CRS (typically EPSG:3347 StatsCan Lambert) to WGS84 (EPSG:4326). Geometry is stored as WKT strings with centroid lat/lon extracted.
 
-## Data Sources
+#### `bridges_tunnels`
+**Source:** Open Database of Infrastructure (ODI) v2.0, November 2024
+Quebec bridges, tunnels, and culverts. Part of a larger infrastructure database (~2.7 million records nationally covering airports, railways, water systems, telecom, and more). Each record includes the feature name, sub-type classification, data provider, CCPI classification, and Census subdivision. 82 data providers nationally spanning municipalities, provinces, and Natural Resources Canada.
 
-All data sourced from Statistics Canada open data initiatives (2020-2025). See metadata PDFs in the volume for full provenance and methodology.
+#### `cycling_network`
+**Source:** Canadian Cycling Network Database, January 2025
+Quebec cycling infrastructure classified under the Canadian Bicycle Infrastructure Classification System (Can-BICS). Eight infrastructure types across three comfort-safety levels: high comfort (cycle tracks, local street bikeways, bike paths), medium (multi-use paths), and low (painted bike lanes). Also includes non-conforming types (gravel trails, shared roadways). 18,700 km nationally across 75 municipalities. Surface type and lane width available for some segments.
+
+#### `pedestrian_network`
+**Source:** Canadian Pedestrian Network Database, March 2025
+Quebec sidewalks, pedestrian paths, multi-use paths, unpaved paths, crosswalks, pedestrian zones, bridges/underpasses, and stairways. Eight infrastructure types with width (in meters) and surface material (paved, gravel, wood, natural) where available. Data collected November 2023 - February 2024 from 55 municipalities nationally. Classification validated via Google Street View.
+
+#### `transit_stops` and `transit_routes`
+**Source:** Canadian Public Transit Network Database, January 2025
+Quebec transit stop locations and route geometries from 139 GTFS feeds nationally. The stops layer contains geographic coordinates; the routes/shapes layer contains simplified vehicle path geometries (250m tolerance). Data validated using MobilityData Canonical GTFS Schedule Validator.
+
+### GTFS Transit Feeds (ZIP -> Delta Tables)
+
+#### `transit_stm_stops`, `transit_stm_routes`, `transit_stm_trips`, `transit_stm_stop_times`
+**Source:** Société de transport de Montréal (STM) GTFS feed
+Complete Montreal transit data: stop locations, route definitions, trip schedules, and arrival/departure times at every stop. Standard GTFS format.
+
+#### `transit_stl_stops`, `transit_stl_routes`
+**Source:** Société de transport de Laval (STL) GTFS feed
+Laval transit stop locations and route definitions.
+
+---
+
+## Reference Documents (Volume)
+
+Located in `/Volumes/montreal_hackathon/quebec_data/reference_docs/`
+
+### Dataset Metadata PDFs
+
+| File | Description |
+|------|-------------|
+| `education_facilities_metadata.pdf` | ODEF v3 specification: ISCED classification system, grade range mapping by province, French immersion methodology, data collection and geocoding procedures |
+| `healthcare_facilities_metadata.pdf` | ODHF v1.1 specification: NAICS-based facility classification, ML deduplication methodology, geocoding via OpenStreetMap Nominatim, data source inventory by province |
+| `cultural_art_facilities_metadata.pdf` | ODCAF v1.0 specification: nine facility type categories, address parsing (libpostal), fuzzy duplicate removal, NAICS sector 711/712 mapping |
+| `recreation_sport_facilities_metadata.pdf` | ODRSF v1.0 specification: eighteen facility categories, coverage limitations, 452 data source inventory |
+| `odi_bridges_tunnels_metadata.pdf` | ODI v2.0 specification: infrastructure classification (CCPI), 12 infrastructure categories, deduplication methodology, data provider inventory |
+| `cycling_network_metadata.pdf` | Can-BICS classification system, 317 municipal bikeway types mapped to 8 standard categories, Google Street View validation methodology, municipality coverage summary |
+| `pedestrian_network_metadata.pdf` | Pedestrian infrastructure classification, width standardization, surface material taxonomy, data collection timeline |
+| `public_transit_metadata.pdf` | GTFS feed validation, 139 agency inventory, stops/shapes layer construction, data quality notes |
+
+### Montreal Building Plans
+
+| File | Description |
+|------|-------------|
+| `building_628_floorplans.pdf` | Floor plans for 628 building |
+| `building_tdc2_signature_suites_floorplans.pdf` | TDC2 Signature Suites floor plans |
+| `building_tdc3_floorplans.pdf` | TDC3 building floor plans |
+| `building_tdc3_podium_floorplans.pdf` | TDC3 podium level floor plans |
+| `building_lavenue_penthouse_brochure.pdf` | L'Avenue penthouse elevation and floor plan brochure |
+| `building_lavenue_brochure.pdf` | L'Avenue full building brochure (English) |
+| `building_terra_floorplan.pdf` | Terra building floor plan |
+| `building_yul_floorplan.pdf` | YUL building floor plan |
+
+### Supporting CSVs
+
+Data source inventories, record layouts, and classification dictionaries for each dataset are also included in the volume for additional reference.
