@@ -95,19 +95,6 @@ Located in `/Volumes/montreal_hackathon/quebec_data/reference_docs/`
 | `montreal_census_sociodemographic_profile.pdf` | Profil sociodémographique — Montreal CMA demographics, income, commute patterns, and housing from the 2021 Census (French, 848 KB) |
 | `quebec_health_services_annual_report_2024_2025.pdf` | MSSS Rapport annuel de gestion 2024-2025 — Quebec Ministry of Health annual management report covering health network structure, service delivery, and performance indicators (French, 2.7 MB) |
 
-### Montreal Building Plans
-
-| File | Description |
-|------|-------------|
-| `building_628_floorplans.pdf` | Floor plans for 628 building |
-| `building_tdc2_signature_suites_floorplans.pdf` | TDC2 Signature Suites floor plans |
-| `building_tdc3_floorplans.pdf` | TDC3 building floor plans |
-| `building_tdc3_podium_floorplans.pdf` | TDC3 podium level floor plans |
-| `building_lavenue_penthouse_brochure.pdf` | L'Avenue penthouse elevation and floor plan brochure |
-| `building_lavenue_brochure.pdf` | L'Avenue full building brochure (English) |
-| `building_terra_floorplan.pdf` | Terra building floor plan |
-| `building_yul_floorplan.pdf` | YUL building floor plan |
-
 ### Supporting CSVs
 
 Data source inventories, record layouts, and classification dictionaries for each dataset are also included in the volume for additional reference.
