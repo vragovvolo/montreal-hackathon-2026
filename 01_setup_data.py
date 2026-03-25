@@ -109,7 +109,17 @@ HEAVY_FILES = [
 
 # COMMAND ----------
 
-spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG} USING 'DELTA'")
+try:
+    spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
+except Exception as e:
+    if "storage root URL" in str(e) or "Default Storage" in str(e):
+        # Workspace uses Default Storage — catalog must be created via UI or REST API
+        print(f"NOTE: Could not auto-create catalog. Please create '{CATALOG}' manually via the Databricks UI:")
+        print(f"  Catalog Explorer > Create Catalog > Name: {CATALOG}")
+        print(f"Then re-run this notebook.")
+        raise RuntimeError(f"Catalog '{CATALOG}' does not exist. Create it via the UI first.") from e
+    else:
+        raise
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SCHEMA}")
 spark.sql(f"CREATE VOLUME IF NOT EXISTS {CATALOG}.{SCHEMA}.raw_data")
 spark.sql(f"CREATE VOLUME IF NOT EXISTS {CATALOG}.{SCHEMA}.reference_docs")
