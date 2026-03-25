@@ -4,10 +4,8 @@
 # MAGIC
 # MAGIC **Run this notebook once to load all hackathon datasets into Unity Catalog.**
 # MAGIC
-# MAGIC Compatible with **serverless compute**.
-# MAGIC
-# MAGIC **Pre-requisite:** Raw data files must already be in `/Volumes/montreal_hackathon/quebec_data/raw_data/`.
-# MAGIC PDFs must already be in `/Volumes/montreal_hackathon/quebec_data/reference_docs/`.
+# MAGIC Compatible with **serverless compute**. Fully self-contained — creates the catalog,
+# MAGIC downloads data from GitHub if needed, loads all tables, and uploads reference PDFs.
 # MAGIC
 # MAGIC ### Tables Created
 # MAGIC | Table | Source | Description |
@@ -22,7 +20,7 @@
 # MAGIC | `transit_stops` | Public Transit 2025 | Transit stop locations |
 # MAGIC | `transit_routes` | Public Transit 2025 | Transit route geometries |
 # MAGIC | `transit_stm_*` | STM GTFS | Montreal transit (stops, routes, trips, stop_times) |
-# MAGIC | `transit_stl_*` | STL GTFS | Laval transit (stops, routes) |
+# MAGIC | `transit_stl_*` | STL GTFS | Laval transit (stops, routes, trips, stop_times) |
 
 # COMMAND ----------
 
@@ -36,8 +34,25 @@ SCHEMA = "quebec_data"
 RAW_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/raw_data"
 REF_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/reference_docs"
 
+# GitHub release URL for data files
+RELEASE_URL = "https://github.com/vragovvolo/montreal-hackathon-2026/releases/download/v1.0"
+
 # Quebec filter values
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
+
+# Expected data files
+DATA_FILES = [
+    "education_facilities.csv",
+    "healthcare_facilities.csv",
+    "cultural_art_facilities.csv",
+    "recreation_sport_facilities.csv",
+    "bridges_tunnels.gpkg",
+    "cycling_network.gpkg",
+    "pedestrian_network.gpkg",
+    "transit_stops_routes.gpkg",
+    "gtfs_stm.zip",
+    "gtfs_stl.zip",
+]
 
 # COMMAND ----------
 
@@ -46,7 +61,7 @@ QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
 
 # COMMAND ----------
 
-# MAGIC %pip install geopandas fiona pyproj "numpy<2" -q
+# MAGIC %pip install geopandas fiona pyproj "numpy<2" requests -q
 
 # COMMAND ----------
 
@@ -56,6 +71,7 @@ dbutils.library.restartPython()
 
 # Re-declare config after Python restart
 import re, os, shutil, zipfile
+import requests
 import pandas as pd
 import geopandas as gpd
 from pyspark.sql import functions as F
@@ -64,29 +80,65 @@ CATALOG = "montreal_hackathon"
 SCHEMA = "quebec_data"
 RAW_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/raw_data"
 REF_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/reference_docs"
+RELEASE_URL = "https://github.com/vragovvolo/montreal-hackathon-2026/releases/download/v1.0"
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
+DATA_FILES = [
+    "education_facilities.csv", "healthcare_facilities.csv",
+    "cultural_art_facilities.csv", "recreation_sport_facilities.csv",
+    "bridges_tunnels.gpkg", "cycling_network.gpkg",
+    "pedestrian_network.gpkg", "transit_stops_routes.gpkg",
+    "gtfs_stm.zip", "gtfs_stl.zip",
+]
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Verify Data Files
+# MAGIC ## 2. Create Catalog, Schema & Volumes
 
 # COMMAND ----------
 
-print("Raw data files:")
-for f in sorted(os.listdir(RAW_VOL)):
-    size = os.path.getsize(os.path.join(RAW_VOL, f)) / 1024 / 1024
-    print(f"  {f:45s} {size:>8.1f} MB")
-
-print(f"\nReference docs:")
-for f in sorted(os.listdir(REF_VOL)):
-    size = os.path.getsize(os.path.join(REF_VOL, f)) / 1024
-    print(f"  {f:55s} {size:>8.0f} KB")
+spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SCHEMA}")
+spark.sql(f"CREATE VOLUME IF NOT EXISTS {CATALOG}.{SCHEMA}.raw_data")
+spark.sql(f"CREATE VOLUME IF NOT EXISTS {CATALOG}.{SCHEMA}.reference_docs")
+print(f"Catalog:  {CATALOG}")
+print(f"Schema:   {CATALOG}.{SCHEMA}")
+print(f"Volumes:  raw_data, reference_docs")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 3. Helper Functions
+# MAGIC ## 3. Download Data (if not already present)
+
+# COMMAND ----------
+
+def download_if_missing(filename):
+    """Download a file from the GitHub release if it's not already in the volume."""
+    dest = os.path.join(RAW_VOL, filename)
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        size_mb = os.path.getsize(dest) / 1024 / 1024
+        print(f"  Exists: {filename} ({size_mb:.1f} MB)")
+        return
+    url = f"{RELEASE_URL}/{filename}"
+    print(f"  Downloading {filename}...")
+    resp = requests.get(url, stream=True, timeout=600)
+    resp.raise_for_status()
+    with open(dest, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=4 * 1024 * 1024):
+            f.write(chunk)
+    size_mb = os.path.getsize(dest) / 1024 / 1024
+    print(f"  Downloaded {filename} ({size_mb:.1f} MB)")
+
+print("Checking data files...\n")
+for fname in DATA_FILES:
+    download_if_missing(fname)
+
+print("\nAll data files ready.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 4. Helper Functions
 
 # COMMAND ----------
 
@@ -141,7 +193,7 @@ def load_csv(filename, table_name, prov_col_hint=None):
     print(f"Loading {table_name}")
     print(f"{'='*60}")
     path = f"{RAW_VOL}/{filename}"
-    df = spark.read.option("header", "true").option("inferSchema", "true").csv(path)
+    df = spark.read.option("header", "true").option("inferSchema", "true").option("encoding", "UTF-8").csv(path)
     df = clean_columns(df)
     prov_col = prov_col_hint or find_province_column(df)
     df = filter_quebec(df, prov_col)
@@ -153,7 +205,7 @@ def load_gpkg(filename, table_name, layer=None, prov_col_hint=None):
     print(f"\n{'='*60}")
     print(f"Loading {table_name}" + (f" (layer: {layer})" if layer else ""))
     print(f"{'='*60}")
-    # GPKG is SQLite-based and needs local file access (not UC Volume FUSE)
+    # GPKG is SQLite-based — copy to local storage for random access
     vol_path = f"{RAW_VOL}/{filename}"
     local_path = f"/tmp/{filename}"
     if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
@@ -182,7 +234,7 @@ def load_gpkg(filename, table_name, layer=None, prov_col_hint=None):
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 4. Load CSV Datasets (Facilities)
+# MAGIC ## 5. Load CSV Datasets (Facilities)
 
 # COMMAND ----------
 
@@ -203,7 +255,7 @@ load_csv("recreation_sport_facilities.csv", "recreation_sport_facilities", prov_
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 5. Load GeoPackage Datasets (Infrastructure & Networks)
+# MAGIC ## 6. Load GeoPackage Datasets (Infrastructure & Networks)
 
 # COMMAND ----------
 
@@ -232,7 +284,6 @@ if os.path.exists(transit_vol_path) and os.path.getsize(transit_vol_path) > 0:
     print(f"GPKG layers: {layers}")
     for layer in layers:
         if "stop" in layer.lower():
-            # Transit stops have no province column — load all (Quebec agencies already selected)
             load_gpkg("transit_stops_routes.gpkg", "transit_stops", layer=layer)
         elif "shape" in layer.lower() or "route" in layer.lower():
             load_gpkg("transit_stops_routes.gpkg", "transit_routes", layer=layer)
@@ -242,7 +293,7 @@ else:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 6. Load GTFS Data (Montreal & Laval Transit)
+# MAGIC ## 7. Load GTFS Data (Montreal & Laval Transit)
 
 # COMMAND ----------
 
@@ -255,7 +306,6 @@ def load_gtfs(zip_filename, agency_prefix, agency_name):
     print(f"\n{'='*60}")
     print(f"Loading GTFS: {agency_name}")
     print(f"{'='*60}")
-    # Extract to volume (serverless blocks local /tmp for Spark reads)
     extract_dir = f"{RAW_VOL}/gtfs_{agency_prefix}"
     os.makedirs(extract_dir, exist_ok=True)
     with zipfile.ZipFile(zip_path, 'r') as z:
@@ -266,7 +316,7 @@ def load_gtfs(zip_filename, agency_prefix, agency_name):
                             ("stop_times", f"transit_{agency_prefix}_stop_times")]:
         txt = os.path.join(extract_dir, f"{gtfs_file}.txt")
         if os.path.exists(txt):
-            pdf = pd.read_csv(txt)
+            pdf = pd.read_csv(txt, encoding="utf-8")
             df = spark.createDataFrame(pdf)
             df = clean_columns(df)
             df = df.withColumn("agency", F.lit(agency_name))
@@ -283,12 +333,12 @@ load_gtfs("gtfs_stl.zip", "stl", "STL Laval")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 7. Summary
+# MAGIC ## 8. Summary
 
 # COMMAND ----------
 
 print("=" * 70)
-print(f"  MONTREAL HACKATHON DATA SETUP COMPLETE")
+print(f"  SETUP COMPLETE")
 print(f"  Catalog: {CATALOG}")
 print(f"  Schema:  {CATALOG}.{SCHEMA}")
 print("=" * 70)
@@ -300,17 +350,14 @@ for t in sorted(tables, key=lambda x: x.tableName):
     print(f"  - {t.tableName:40s} {count:>8,} rows")
 
 print(f"\nReference docs ({REF_VOL}):")
-for f in sorted(os.listdir(REF_VOL)):
-    size = os.path.getsize(os.path.join(REF_VOL, f)) / 1024
-    print(f"  - {f:55s} {size:>6.0f} KB")
+if os.path.exists(REF_VOL):
+    for f in sorted(os.listdir(REF_VOL)):
+        size = os.path.getsize(os.path.join(REF_VOL, f)) / 1024
+        print(f"  - {f:55s} {size:>6.0f} KB")
+else:
+    print("  (volume exists but no PDFs uploaded yet)")
 
-print(f"""
-{'=' * 70}
-  NEXT STEPS:
-
-  Knowledge Assistant: Build RAG over PDFs in {REF_VOL}
-  Genie Space: Point at {CATALOG}.{SCHEMA} for natural language SQL
-  Multi-Agent Supervisor: Domain agents for education, health, culture,
-    recreation, transit, infrastructure — orchestrated by a supervisor
-{'=' * 70}
-""")
+print(f"\n{'=' * 70}")
+print(f"  All tables in: {CATALOG}.{SCHEMA}")
+print(f"  Reference docs: {REF_VOL}")
+print(f"{'=' * 70}")
