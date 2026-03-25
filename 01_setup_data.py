@@ -232,9 +232,10 @@ if os.path.exists(transit_vol_path) and os.path.getsize(transit_vol_path) > 0:
     print(f"GPKG layers: {layers}")
     for layer in layers:
         if "stop" in layer.lower():
-            load_gpkg("transit_stops_routes.gpkg", "transit_stops", layer=layer, prov_col_hint="prov_terr")
+            # Transit stops have no province column — load all (Quebec agencies already selected)
+            load_gpkg("transit_stops_routes.gpkg", "transit_stops", layer=layer)
         elif "shape" in layer.lower() or "route" in layer.lower():
-            load_gpkg("transit_stops_routes.gpkg", "transit_routes", layer=layer, prov_col_hint="prov_terr")
+            load_gpkg("transit_stops_routes.gpkg", "transit_routes", layer=layer)
 else:
     print("Transit GPKG not available - skipping transit_stops and transit_routes tables")
 
