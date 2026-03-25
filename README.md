@@ -2,11 +2,16 @@
 
 ## Quick Start
 
-1. Import `01_setup_data.py` as a Databricks notebook
-2. Run on serverless compute
+1. Create a Git folder in your Databricks workspace pointing to this repo
+2. Open `01_setup_data` and run on serverless compute
 3. All tables land in `montreal_hackathon.quebec_data`
 
-**Pre-requisite:** Raw data files must be pre-loaded in `/Volumes/montreal_hackathon/quebec_data/raw_data/` before running the notebook.
+The notebook is fully self-contained — it creates the catalog, downloads data from GitHub, and loads everything automatically.
+
+### Load modes
+
+- **Default (quick):** Loads CSVs + GTFS transit data (~110 MB download, ~3 min). Creates 12 tables.
+- **Full geospatial:** Set `LOAD_GEOSPATIAL = True` in the first config cell to also load GPKG files (~1 GB extra download, ~10-15 min). Creates 17 tables including bridges, cycling network, pedestrian network, and transit stop/route geometries.
 
 ---
 
