@@ -2,13 +2,12 @@
 # MAGIC %md
 # MAGIC # Montreal Hackathon - Quebec Open Data Setup
 # MAGIC
-# MAGIC **Run this notebook once to load all hackathon datasets into Unity Catalog.**
+# MAGIC Run this notebook once to set up all hackathon data. Works on **serverless compute**.
 # MAGIC
-# MAGIC Compatible with **serverless compute**. Fully self-contained — creates the catalog,
-# MAGIC downloads data from GitHub if needed, and loads all tables.
-# MAGIC
-# MAGIC **Quick mode (default):** Loads CSVs + GTFS (~110 MB, ~3 min)
-# MAGIC **Full mode:** Set `LOAD_GEOSPATIAL = True` to also load GPKG files (~1 GB extra, ~10 min)
+# MAGIC | Mode | What loads | Download | Time | How |
+# MAGIC |------|-----------|----------|------|-----|
+# MAGIC | **Quick** (default) | 4 facility tables + 8 GTFS transit tables | ~110 MB | ~3 min | Just run |
+# MAGIC | **Full** | Above + 5 geospatial tables (bridges, cycling, pedestrian, transit geometry) | ~1.1 GB | ~15 min | Set `LOAD_GEOSPATIAL = True` below |
 # MAGIC
 # MAGIC ### Tables Created
 # MAGIC | Table | Source | Description |
