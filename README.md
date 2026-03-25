@@ -81,6 +81,20 @@ Located in `/Volumes/montreal_hackathon/quebec_data/reference_docs/`
 | `pedestrian_network_metadata.pdf` | Pedestrian infrastructure classification, width standardization, surface material taxonomy, data collection timeline |
 | `public_transit_metadata.pdf` | GTFS feed validation, 139 agency inventory, stops/shapes layer construction, data quality notes |
 
+### Montreal & Quebec Policy Documents
+
+| File | Description |
+|------|-------------|
+| `montreal_urban_plan_pum2050.pdf` | Plan d'urbanisme et de mobilité 2050 — Montreal's master city plan covering zoning, land use, densification, mobility corridors, and development guidelines (French, 24 MB) |
+| `montreal_urban_plan_pum2050_english.pdf` | PUM 2050 "Projet de Ville" overview — English version of the city vision document (30 MB) |
+| `stm_annual_report_2024.pdf` | STM Rapport annuel 2024 — Montreal transit ridership (314.6M trips, +9% YoY), route performance, fleet expansion, and financial summary (French, 7.4 MB) |
+| `stm_financial_report_2024.pdf` | STM Financial Report 2024 — Detailed financials for Société de transport de Montréal (French, 656 KB) |
+| `quebec_infrastructure_plan_pqi_2026_2036.pdf` | Plan québécois des infrastructures 2026-2036 — Provincial 10-year capital investment plan for roads, bridges, transit, and public buildings (French, 4.5 MB) |
+| `montreal_plan_velo_2019.pdf` | Plan vélo 2019 — Montreal's comprehensive cycling infrastructure strategy with network maps, priorities, and investment targets (French, 9.3 MB) |
+| `montreal_vision_velo_2023_2027_projects.pdf` | Vision vélo 2023-2027 — Map and project list for planned cycling network expansion including the REV express bike network (French, 300 KB) |
+| `montreal_census_sociodemographic_profile.pdf` | Profil sociodémographique — Montreal CMA demographics, income, commute patterns, and housing from the 2021 Census (French, 848 KB) |
+| `quebec_health_services_annual_report_2024_2025.pdf` | MSSS Rapport annuel de gestion 2024-2025 — Quebec Ministry of Health annual management report covering health network structure, service delivery, and performance indicators (French, 2.7 MB) |
+
 ### Montreal Building Plans
 
 | File | Description |
