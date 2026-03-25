@@ -255,7 +255,8 @@ def load_gtfs(zip_filename, agency_prefix, agency_name):
     print(f"\n{'='*60}")
     print(f"Loading GTFS: {agency_name}")
     print(f"{'='*60}")
-    extract_dir = f"/tmp/gtfs_{agency_prefix}"
+    # Extract to volume (serverless blocks local /tmp for Spark reads)
+    extract_dir = f"{RAW_VOL}/gtfs_{agency_prefix}"
     os.makedirs(extract_dir, exist_ok=True)
     with zipfile.ZipFile(zip_path, 'r') as z:
         z.extractall(extract_dir)
@@ -265,7 +266,8 @@ def load_gtfs(zip_filename, agency_prefix, agency_name):
                             ("stop_times", f"transit_{agency_prefix}_stop_times")]:
         txt = os.path.join(extract_dir, f"{gtfs_file}.txt")
         if os.path.exists(txt):
-            df = spark.read.option("header", "true").option("inferSchema", "true").csv(f"file:{txt}")
+            pdf = pd.read_csv(txt)
+            df = spark.createDataFrame(pdf)
             df = clean_columns(df)
             df = df.withColumn("agency", F.lit(agency_name))
             save_table(df, tbl)
