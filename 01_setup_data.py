@@ -5,7 +5,10 @@
 # MAGIC **Run this notebook once to load all hackathon datasets into Unity Catalog.**
 # MAGIC
 # MAGIC Compatible with **serverless compute**. Fully self-contained — creates the catalog,
-# MAGIC downloads data from GitHub if needed, loads all tables, and uploads reference PDFs.
+# MAGIC downloads data from GitHub if needed, and loads all tables.
+# MAGIC
+# MAGIC **Quick mode (default):** Loads CSVs + GTFS (~110 MB, ~3 min)
+# MAGIC **Full mode:** Set `LOAD_GEOSPATIAL = True` to also load GPKG files (~1 GB extra, ~10 min)
 # MAGIC
 # MAGIC ### Tables Created
 # MAGIC | Table | Source | Description |
@@ -37,21 +40,28 @@ REF_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/reference_docs"
 # GitHub release URL for data files
 RELEASE_URL = "https://github.com/vragovvolo/montreal-hackathon-2026/releases/download/v1.0"
 
+# Set to True to also load heavy geospatial files (GPKG ~1 GB total, adds ~5-10 min)
+LOAD_GEOSPATIAL = False
+
 # Quebec filter values
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
 
-# Expected data files
-DATA_FILES = [
+# Light files (always loaded): CSVs + GTFS zips (~110 MB)
+LIGHT_FILES = [
     "education_facilities.csv",
     "healthcare_facilities.csv",
     "cultural_art_facilities.csv",
     "recreation_sport_facilities.csv",
+    "gtfs_stm.zip",
+    "gtfs_stl.zip",
+]
+
+# Heavy files (only loaded when LOAD_GEOSPATIAL = True): GPKGs (~1 GB)
+HEAVY_FILES = [
     "bridges_tunnels.gpkg",
     "cycling_network.gpkg",
     "pedestrian_network.gpkg",
     "transit_stops_routes.gpkg",
-    "gtfs_stm.zip",
-    "gtfs_stl.zip",
 ]
 
 # COMMAND ----------
@@ -81,13 +91,16 @@ SCHEMA = "quebec_data"
 RAW_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/raw_data"
 REF_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/reference_docs"
 RELEASE_URL = "https://github.com/vragovvolo/montreal-hackathon-2026/releases/download/v1.0"
+LOAD_GEOSPATIAL = False  # mirror the flag from cell above
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
-DATA_FILES = [
+LIGHT_FILES = [
     "education_facilities.csv", "healthcare_facilities.csv",
     "cultural_art_facilities.csv", "recreation_sport_facilities.csv",
+    "gtfs_stm.zip", "gtfs_stl.zip",
+]
+HEAVY_FILES = [
     "bridges_tunnels.gpkg", "cycling_network.gpkg",
     "pedestrian_network.gpkg", "transit_stops_routes.gpkg",
-    "gtfs_stm.zip", "gtfs_stl.zip",
 ]
 
 # COMMAND ----------
@@ -129,11 +142,14 @@ def download_if_missing(filename):
     size_mb = os.path.getsize(dest) / 1024 / 1024
     print(f"  Downloaded {filename} ({size_mb:.1f} MB)")
 
-print("Checking data files...\n")
-for fname in DATA_FILES:
+files_to_load = LIGHT_FILES + (HEAVY_FILES if LOAD_GEOSPATIAL else [])
+print(f"LOAD_GEOSPATIAL = {LOAD_GEOSPATIAL}")
+print(f"{'Loading ALL files (CSVs + GPKGs + GTFS)' if LOAD_GEOSPATIAL else 'Loading LIGHT files only (CSVs + GTFS). Set LOAD_GEOSPATIAL = True for geospatial data.'}\n")
+
+for fname in files_to_load:
     download_if_missing(fname)
 
-print("\nAll data files ready.")
+print("\nData files ready.")
 
 # COMMAND ----------
 
@@ -256,39 +272,53 @@ load_csv("recreation_sport_facilities.csv", "recreation_sport_facilities", prov_
 
 # MAGIC %md
 # MAGIC ## 6. Load GeoPackage Datasets (Infrastructure & Networks)
+# MAGIC
+# MAGIC **Skipped by default.** Set `LOAD_GEOSPATIAL = True` in cell 0 to enable (~1 GB download, adds ~5-10 min).
 
 # COMMAND ----------
 
-load_gpkg("bridges_tunnels.gpkg", "bridges_tunnels", prov_col_hint="prov_terr")
+if not LOAD_GEOSPATIAL:
+    print("LOAD_GEOSPATIAL = False — skipping GPKG datasets.")
+    print("Set LOAD_GEOSPATIAL = True in the Configuration cell and re-run to load:")
+    print("  - bridges_tunnels")
+    print("  - cycling_network")
+    print("  - pedestrian_network")
+    print("  - transit_stops / transit_routes")
 
 # COMMAND ----------
 
-load_gpkg("cycling_network.gpkg", "cycling_network", prov_col_hint="province_territory")
+if LOAD_GEOSPATIAL:
+    load_gpkg("bridges_tunnels.gpkg", "bridges_tunnels", prov_col_hint="prov_terr")
 
 # COMMAND ----------
 
-load_gpkg("pedestrian_network.gpkg", "pedestrian_network", prov_col_hint="prov_terr")
+if LOAD_GEOSPATIAL:
+    load_gpkg("cycling_network.gpkg", "cycling_network", prov_col_hint="province_territory")
 
 # COMMAND ----------
 
-# Transit Stops & Routes (from unified GPKG)
-import fiona
+if LOAD_GEOSPATIAL:
+    load_gpkg("pedestrian_network.gpkg", "pedestrian_network", prov_col_hint="prov_terr")
 
-transit_vol_path = f"{RAW_VOL}/transit_stops_routes.gpkg"
-transit_local = "/tmp/transit_stops_routes.gpkg"
-if os.path.exists(transit_vol_path) and os.path.getsize(transit_vol_path) > 0:
-    if not os.path.exists(transit_local) or os.path.getsize(transit_local) == 0:
-        print("Copying transit GPKG to local storage...")
-        shutil.copy2(transit_vol_path, transit_local)
-    layers = fiona.listlayers(transit_local)
-    print(f"GPKG layers: {layers}")
-    for layer in layers:
-        if "stop" in layer.lower():
-            load_gpkg("transit_stops_routes.gpkg", "transit_stops", layer=layer)
-        elif "shape" in layer.lower() or "route" in layer.lower():
-            load_gpkg("transit_stops_routes.gpkg", "transit_routes", layer=layer)
-else:
-    print("Transit GPKG not available - skipping transit_stops and transit_routes tables")
+# COMMAND ----------
+
+if LOAD_GEOSPATIAL:
+    import fiona
+    transit_vol_path = f"{RAW_VOL}/transit_stops_routes.gpkg"
+    transit_local = "/tmp/transit_stops_routes.gpkg"
+    if os.path.exists(transit_vol_path) and os.path.getsize(transit_vol_path) > 0:
+        if not os.path.exists(transit_local) or os.path.getsize(transit_local) == 0:
+            print("Copying transit GPKG to local storage...")
+            shutil.copy2(transit_vol_path, transit_local)
+        layers = fiona.listlayers(transit_local)
+        print(f"GPKG layers: {layers}")
+        for layer in layers:
+            if "stop" in layer.lower():
+                load_gpkg("transit_stops_routes.gpkg", "transit_stops", layer=layer)
+            elif "shape" in layer.lower() or "route" in layer.lower():
+                load_gpkg("transit_stops_routes.gpkg", "transit_routes", layer=layer)
+    else:
+        print("Transit GPKG not available - skipping")
 
 # COMMAND ----------
 
