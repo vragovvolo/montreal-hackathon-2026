@@ -206,7 +206,7 @@ load_gpkg("bridges_tunnels.gpkg", "bridges_tunnels", prov_col_hint="prov_terr")
 
 # COMMAND ----------
 
-load_gpkg("cycling_network.gpkg", "cycling_network", prov_col_hint="provinceterritory")
+load_gpkg("cycling_network.gpkg", "cycling_network", prov_col_hint="province_territory")
 
 # COMMAND ----------
 
