@@ -45,6 +45,27 @@ LOAD_GEOSPATIAL = False
 # Quebec filter values
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
 
+# Reference PDFs (always downloaded to reference_docs volume)
+PDF_FILES = [
+    "odi_bridges_tunnels_metadata.pdf",
+    "cycling_network_metadata.pdf",
+    "cultural_art_facilities_metadata.pdf",
+    "education_facilities_metadata.pdf",
+    "healthcare_facilities_metadata.pdf",
+    "recreation_sport_facilities_metadata.pdf",
+    "pedestrian_network_metadata.pdf",
+    "public_transit_metadata.pdf",
+    "montreal_urban_plan_pum2050.pdf",
+    "montreal_urban_plan_pum2050_english.pdf",
+    "stm_annual_report_2024.pdf",
+    "stm_financial_report_2024.pdf",
+    "quebec_infrastructure_plan_pqi_2026_2036.pdf",
+    "montreal_plan_velo_2019.pdf",
+    "montreal_vision_velo_2023_2027_projects.pdf",
+    "montreal_census_sociodemographic_profile.pdf",
+    "quebec_health_services_annual_report_2024_2025.pdf",
+]
+
 # Light files (always loaded): CSVs + GTFS zips (~110 MB)
 LIGHT_FILES = [
     "education_facilities.csv",
@@ -92,6 +113,18 @@ REF_VOL = f"/Volumes/{CATALOG}/{SCHEMA}/reference_docs"
 RELEASE_URL = "https://github.com/vragovvolo/montreal-hackathon-2026/releases/download/v1.0"
 LOAD_GEOSPATIAL = False  # mirror the flag from cell above
 QC_CODES = ["QC", "Qc", "qc", "Quebec", "Québec", "quebec", "québec", "24"]
+PDF_FILES = [
+    "odi_bridges_tunnels_metadata.pdf", "cycling_network_metadata.pdf",
+    "cultural_art_facilities_metadata.pdf", "education_facilities_metadata.pdf",
+    "healthcare_facilities_metadata.pdf", "recreation_sport_facilities_metadata.pdf",
+    "pedestrian_network_metadata.pdf", "public_transit_metadata.pdf",
+    "montreal_urban_plan_pum2050.pdf", "montreal_urban_plan_pum2050_english.pdf",
+    "stm_annual_report_2024.pdf", "stm_financial_report_2024.pdf",
+    "quebec_infrastructure_plan_pqi_2026_2036.pdf", "montreal_plan_velo_2019.pdf",
+    "montreal_vision_velo_2023_2027_projects.pdf",
+    "montreal_census_sociodemographic_profile.pdf",
+    "quebec_health_services_annual_report_2024_2025.pdf",
+]
 LIGHT_FILES = [
     "education_facilities.csv", "healthcare_facilities.csv",
     "cultural_art_facilities.csv", "recreation_sport_facilities.csv",
@@ -134,9 +167,9 @@ print(f"Volumes:  raw_data, reference_docs")
 
 # COMMAND ----------
 
-def download_if_missing(filename):
+def download_if_missing(filename, dest_dir):
     """Download a file from the GitHub release if it's not already in the volume."""
-    dest = os.path.join(RAW_VOL, filename)
+    dest = os.path.join(dest_dir, filename)
     if os.path.exists(dest) and os.path.getsize(dest) > 0:
         size_mb = os.path.getsize(dest) / 1024 / 1024
         print(f"  Exists: {filename} ({size_mb:.1f} MB)")
@@ -151,14 +184,20 @@ def download_if_missing(filename):
     size_mb = os.path.getsize(dest) / 1024 / 1024
     print(f"  Downloaded {filename} ({size_mb:.1f} MB)")
 
+# Download data files
 files_to_load = LIGHT_FILES + (HEAVY_FILES if LOAD_GEOSPATIAL else [])
 print(f"LOAD_GEOSPATIAL = {LOAD_GEOSPATIAL}")
 print(f"{'Loading ALL files (CSVs + GPKGs + GTFS)' if LOAD_GEOSPATIAL else 'Loading LIGHT files only (CSVs + GTFS). Set LOAD_GEOSPATIAL = True for geospatial data.'}\n")
 
 for fname in files_to_load:
-    download_if_missing(fname)
+    download_if_missing(fname, RAW_VOL)
 
-print("\nData files ready.")
+# Download reference PDFs
+print(f"\nReference PDFs ({len(PDF_FILES)} files):")
+for fname in PDF_FILES:
+    download_if_missing(fname, REF_VOL)
+
+print("\nAll files ready.")
 
 # COMMAND ----------
 
